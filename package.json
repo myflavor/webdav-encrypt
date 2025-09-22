@@ -1,6 +1,6 @@
 {
-  "name": "webdav-proxy",
+  "name": "webdav-encrypt",
   "version": "1.0.0",
   "type": "module",
-  "description": "Webdav代理"
+  "description": "Webdav加密代理"
 }
