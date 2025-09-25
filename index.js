@@ -3,7 +3,7 @@ import {Transform} from 'stream'
 import {createCipheriv, createDecipheriv, createHash} from 'crypto'
 
 const config = {
-    hostname: '192.168.6.204',
+    hostname: '172.17.0.1',
     port: 5445,
     password: 'myflavor'
 }
@@ -64,7 +64,7 @@ const incrementIV = blocks => {
 }
 
 class AesDecryptStream extends Transform {
-    constructor(start) {
+    constructor(start = 0) {
         super()
         const blocks = parseInt(start / ivLength)
         const offset = start % ivLength
@@ -110,7 +110,7 @@ const getRangeStart = req => {
 }
 
 const server = http.createServer((req, res) => {
-    console.log(req.method, decodeURIComponent(req.url))
+
 
     const proxyOpt = {
         hostname: config.hostname, port: config.port,
@@ -121,14 +121,18 @@ const server = http.createServer((req, res) => {
     delete req.headers['content-encoding']
 
     const proxyReq = http.request(proxyOpt, proxyRes => {
-
+        console.log(req.method, decodeURIComponent(req.url), proxyRes.statusCode)
         res.writeHead(proxyRes.statusCode, proxyRes.headers)
         if (req.method === 'GET') {
-            const rangeStart = getRangeStart(req)
-            return proxyRes.pipe(new AesDecryptStream(rangeStart)).pipe(res)
-        } else {
-            proxyRes.pipe(res)
+            if (proxyRes.statusCode === 206) {
+                const rangeStart = getRangeStart(req)
+                return proxyRes.pipe(new AesDecryptStream(rangeStart)).pipe(res)
+            }
+            if (proxyRes.statusCode === 200) {
+                return proxyRes.pipe(new AesDecryptStream()).pipe(res)
+            }
         }
+        proxyRes.pipe(res)
     })
 
     proxyReq.on('error', err => {
