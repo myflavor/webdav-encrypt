@@ -4,7 +4,7 @@ import {createCipheriv, createDecipheriv, createHash} from 'crypto'
 
 const config = {
     hostname: '172.17.0.1',
-    port: 5445,
+    port: 5244,
     password: 'myflavor'
 }
 
@@ -18,6 +18,20 @@ const hash = str => createHash('sha256').update(str).digest()
 const key = hash(config.password)
 const iv = hash('iv' + config.password).subarray(0, ivLength)
 
+const bigintIv = iv.reduce((acc, byte, index) => {
+    return acc | (BigInt(byte) << BigInt(8 * (15 - index)))
+}, 0n)
+
+const incrementIV = blocks => {
+    const newBigInt = bigintIv + BigInt(blocks)
+    const newIV = Buffer.alloc(16)
+    for (let i = 0; i < 16; i++) {
+        const shiftAmount = BigInt(8 * (15 - i))
+        const byteValue = (newBigInt >> shiftAmount) & 0xFFn
+        newIV[i] = Number(byteValue)
+    }
+    return newIV
+}
 
 class AesEncryptStream extends Transform {
     constructor() {
@@ -46,21 +60,6 @@ class AesEncryptStream extends Transform {
             callback()
         }
     }
-}
-
-const incrementIV = blocks => {
-    const currentIV = Buffer.from(iv)
-    for (let i = 0; i < blocks; i++) {
-        for (let j = 15; j >= 0; j--) {
-            if (currentIV[j] === 0xff) {
-                currentIV[j] = 0x00
-            } else {
-                currentIV[j]++
-                break
-            }
-        }
-    }
-    return currentIV
 }
 
 class AesDecryptStream extends Transform {
