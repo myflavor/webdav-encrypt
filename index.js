@@ -18,17 +18,13 @@ const hash = str => createHash('sha256').update(str).digest()
 const key = hash(config.password)
 const iv = hash('iv' + config.password).subarray(0, ivLength)
 
-const bigintIv = iv.reduce((acc, byte, index) => {
-    return acc | (BigInt(byte) << BigInt(8 * (15 - index)))
-}, 0n)
-
 const incrementIV = blocks => {
-    const newBigInt = bigintIv + BigInt(blocks)
-    const newIV = Buffer.alloc(16)
-    for (let i = 0; i < 16; i++) {
-        const shiftAmount = BigInt(8 * (15 - i))
-        const byteValue = (newBigInt >> shiftAmount) & 0xFFn
-        newIV[i] = Number(byteValue)
+    const newIV = Buffer.from(iv)
+    let carry = blocks
+    for (let i = 15; i >= 0 && carry > 0; i--) {
+        const sum = newIV[i] + carry
+        newIV[i] = sum & 0xFF
+        carry = Math.floor(sum / 256)
     }
     return newIV
 }
